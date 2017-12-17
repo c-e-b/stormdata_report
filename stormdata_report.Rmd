@@ -1,0 +1,128 @@
+---
+title: "Analysis of stormdata and its impact on health and economy"
+author: "Carl Ebbinghaus"
+date: "17 12 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synopsis
+
+In this short report you'll find an analysis of the stormdata given in the Reproducible Research course. The event types (EVTYPE) with the highest impact on health (ie INJURIES and FATALITIES) will be shown as well as the event types with the highest on economic consequences (ie PROPDMG and CROPDMG).
+
+## Data processing
+
+At first we'll download the given file into our working directory and then we'll read it.
+
+```{r, message=FALSE}
+fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+download.file(fileUrl, destfile = "./RepResStormData.csv.bz2")
+stormdata <- read.csv("RepResStormData.csv.bz2")
+# str(stormdata) # not necessary for the report but you might want to have a look at the data structure
+```
+
+#### Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+After looking at the documentation of the dataset I came to the conclusion that INJURIES and FATALITIES are the two variables that are worth looking at most - with regards to the question of impact on population health. For INJURIES and FATALITIES I'm going to aggregate and sum up by EVTYPE. By ordering those in decreasing order, I'll get two data sets that have the event types with the highest number of injuries (or fatalities) at the top. We will plot these in the RESULTS section, in order to see which event types have the biggest impact.
+
+```{r}
+evt.injuries <- aggregate(INJURIES ~ EVTYPE, stormdata, sum)
+evt.injuries <- evt.injuries[order(evt.injuries$INJURIES, decreasing = TRUE),]
+
+evt.fatalities <- aggregate(FATALITIES ~ EVTYPE, stormdata, sum)
+evt.fatalities <- evt.fatalities[order(evt.fatalities$FATALITIES, decreasing = TRUE),]
+```
+
+After aggregation and ordering we can join both data sets to be able to print injuries and fatalities in one table. Apart from that we will also look at the top 15 single events with the highest numbers of injuries and fatalities. That's why we save an individual copy of the stormdata ordered by injuries and fatalities.
+
+```{r, message=FALSE}
+evt.injuries.top15 <- head(evt.injuries, 15)
+evt.fatalities.top15 <- head(evt.fatalities, 15)
+
+library(dplyr)
+evt.injfat <- full_join(evt.fatalities.top15, evt.injuries.top15, by="EVTYPE")
+```
+
+Apart from that we will also look at the top 15 single events with the highest numbers of injuries and fatalities. That's why we save an individual copy of the stormdata ordered by injuries and fatalities.
+
+```{r}
+stormdata.sortbyfatal <- stormdata[order(stormdata$FATALITIES, decreasing=TRUE),]
+stormdata.sortbyinj <- stormdata[order(stormdata$INJURIES, decreasing=TRUE),]
+```
+
+#### Across the United States, which types of events have the greatest economic consequences?
+
+For the economic consequences looking at PROPDMG and CROPDMG looked most promising to me. Hence I'll do pretty much the same steps as for INJURIES and FATALITIES:
+
+```{r}
+evt.propdmg <- aggregate(PROPDMG ~ EVTYPE, stormdata, sum)
+evt.propdmg <- evt.propdmg[order(evt.propdmg$PROPDMG, decreasing = TRUE),]
+
+evt.cropdmg <- aggregate(CROPDMG ~ EVTYPE, stormdata, sum)
+evt.cropdmg <- evt.cropdmg[order(evt.cropdmg$CROPDMG, decreasing = TRUE),]
+
+evt.propdmg.top15 <- head(evt.propdmg, 15)
+evt.cropdmg.top15 <- head(evt.cropdmg, 15)
+
+library(dplyr)
+evt.propdcropd <- full_join(evt.propdmg.top15, evt.cropdmg.top15, by="EVTYPE")
+
+stormdata.sortbycropd <- stormdata[order(stormdata$CROPDMG, decreasing=TRUE),]
+stormdata.sortbypropd <- stormdata[order(stormdata$PROPDMG, decreasing=TRUE),]
+```
+
+## Results
+
+### Injuries and fatalities - impact on health
+
+```{r}
+library(ggplot2)
+
+ggplot(aes(x=EVTYPE, y=INJURIES), data = evt.injuries.top15) + geom_bar(fill="dark blue", stat = "identity") + scale_x_discrete(limits=evt.injuries.top15$EVTYPE) + theme(axis.text.x = element_text(angle=90, hjust=0)) + ggtitle("The 15 event types (EVTYPE) with the highest sum of injuries") + geom_text(aes(label=INJURIES), vjust=-0.3, color="black", size=2.5)
+
+ggplot(aes(x=EVTYPE, y=FATALITIES), data = evt.fatalities.top15) + geom_bar(fill="dark blue", stat = "identity") + scale_x_discrete(limits=evt.fatalities.top15$EVTYPE) + theme(axis.text.x = element_text(angle=90, hjust=0)) + ggtitle("The 15 event types (EVTYPE) with the highest sum of fatalities") + geom_text(aes(label=FATALITIES), vjust=-0.3, color="black", size=2.5)
+
+evt.injfat
+```
+
+As visible in the plots as well as in the printed data set the event type TORNADO has the highest number of fatalities and injuries.
+
+#### Single events and there event type with the highest number of fatalities and injuries:
+
+These are the single events with the highest numbers of fatalities and injuries. This might also be an indicator of which event types are escpecially dangerous - even if the sum of the individual event type isn't the highest.
+
+```{r}
+head(stormdata.sortbyfatal[, c("EVTYPE","FATALITIES")], 15)
+head(stormdata.sortbyinj[, c("EVTYPE","INJURIES")], 15)
+```
+
+### Property and crop damage - economic impact
+
+```{r}
+library(ggplot2)
+
+ggplot(aes(x=EVTYPE, y=PROPDMG), data = evt.propdmg.top15) + geom_bar(fill="dark blue", stat = "identity") + scale_x_discrete(limits=evt.propdmg.top15$EVTYPE) + theme(axis.text.x = element_text(angle=90, hjust=0)) + ggtitle("The 15 event types (EVTYPE) with the highest sum of propdmg") + geom_text(aes(label=PROPDMG), vjust=-0.3, color="black", size=2)
+```
+
+We will not plot crop damage as it doesn't have as high an impact as property damage. We will include the 15 event types with the highest crop damage in the printed table though:
+```{r}
+evt.propdcropd
+```
+
+As visible in the plot the event type TORNADO has the highest property damage. The highest crop damage comes from HAIL as visible in the table.
+
+#### Single events and there event type with the highest number of property and crop damage:
+
+These are the single events with the highest numbers of property and crop damage. This might also be an indicator of which event types are escpecially expensive for the economy - even if the sum of the individual event type isn't the highest.
+
+```{r}
+head(stormdata.sortbycropd[, c("EVTYPE","CROPDMG")], 15)
+head(stormdata.sortbypropd[, c("EVTYPE","PROPDMG")], 15)
+```
+
+### Summary
+
+In this report stormdata was analyzed with regards to impact on health and economic factors. As indicated in the documentation of the stormdata in some cases, such as with Hurricane Katrina, it may be nearly impossible to determine what event (i.e., Storm Surge/Tide, Hurricane, Flash Flood, or High Surf) resulted in a directly-related death. For these situations, in order to simplify the Storm Data preparation process, it is appropriate to assign the death to the Hurricane (Typhoon) event.
